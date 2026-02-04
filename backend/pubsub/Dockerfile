@@ -14,16 +14,16 @@
 
 # Docker: Google App Engine
 
-FROM mcr.microsoft.com/java/jre-headless:11-zulu-ubuntu
-MAINTAINER Alex Prikhodko <aprikhodko@google.com>
+FROM eclipse-temurin:11-jre
 
 ENV CLOUDSDK_CORE_DISABLE_PROMPTS 1
 ENV DATA_DIR "/opt/pubsub"
 ENV HOST_PORT 8432
 
-RUN apt-get update \
+RUN echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-retries \
+    && apt-get update \
     && apt-get install -y \
-        curl bash python3 \
+    curl bash python3 dos2unix \
     # Cleaning
     && rm -rf /var/cache/apt/archives/*.deb \
     && rm -rf /var/lib/apt/lists/*
@@ -31,6 +31,7 @@ RUN apt-get update \
 # Install Google Cloud SDK
 COPY install_google_cloud_sdk.bash install_google_cloud_sdk.bash
 RUN chmod +x install_google_cloud_sdk.bash
+RUN dos2unix install_google_cloud_sdk.bash
 RUN ./install_google_cloud_sdk.bash --disable-prompts
 RUN /root/google-cloud-sdk/bin/gcloud config set disable_usage_reporting true
 RUN /root/google-cloud-sdk/bin/gcloud components install -q pubsub-emulator beta
@@ -39,5 +40,5 @@ RUN mkdir -p ${DATA_DIR}
 EXPOSE $HOST_PORT
 
 CMD /root/google-cloud-sdk/bin/gcloud beta emulators pubsub start \
-        --data-dir "${DATA_DIR}" \
-        --host-port "0.0.0.0:${HOST_PORT}"
+    --data-dir "${DATA_DIR}" \
+    --host-port "0.0.0.0:${HOST_PORT}"

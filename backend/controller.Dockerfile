@@ -12,19 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM ubuntu:20.04 AS base
-MAINTAINER Alex Prikhodko <aprikhodko@google.com>
-MAINTAINER Pierre Dulac <dulacp@google.com>
+FROM ubuntu:24.04 AS base
 
 # Removes output stream buffering, allowing for more efficient logging
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3.9 python3-distutils python-is-python3 mysql-client \
-    # Set Python 3.9 as the default for python3
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1 \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 2 \
+RUN echo 'Acquire::Retries "5";' > /etc/apt/apt.conf.d/80-retries \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends python3-pip python3-venv python-is-python3 default-mysql-client \
     # Cleaning
     && rm -rf /var/cache/apt/archives/*.deb \
     && rm -rf /var/lib/apt/lists/*
@@ -36,17 +32,25 @@ FROM base as builder
 
 RUN apt-get update \
     && apt-get install -y \
-        git build-essential python3.9-dev python3-pip \
+    git build-essential python3-dev python3-pip \
     # Cleaning
     && rm -rf /var/cache/apt/archives/*.deb \
     && rm -rf /var/lib/apt/lists/*
 
 # TODO(dulacp): use pip-compile to compile a fresh version of dependencies
-COPY ./requirements-controller.txt /app/requirements-controller.txt
+# Install pip-tools to compile requirements
+RUN pip install pip-tools --break-system-packages
+
+COPY ./common /app/common
+COPY ./requirements-controller.in /app/requirements-controller.in
+
+# Compile requirements to update them for Python 3.12
+RUN pip-compile --generate-hashes --output-file /app/requirements-controller.txt /app/requirements-controller.in
 RUN mkdir -p /install/dependencies
 RUN mkdir -p /install/wheels
 RUN pip install \
     --require-hashes \
+    --break-system-packages \
     --disable-pip-version-check \
     --no-cache-dir \
     --target=/install/dependencies \

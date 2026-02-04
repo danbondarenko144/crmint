@@ -17,6 +17,7 @@ version: "3"
 volumes:
   db_data:
 
+
 services:
   db:
     image: mysql:8.0
@@ -48,7 +49,7 @@ services:
       - "8081:8081"
     volumes:
       - ./backend:/app
-      - ~/.config/gcloud:/root/.config/gcloud
+      - C:/Users/dan.bondarenko/AppData/Roaming/gcloud:/root/.config/gcloud
     environment:
       GOOGLE_CLOUD_PROJECT: $GOOGLE_CLOUD_PROJECT
       PUBSUB_EMULATOR_HOST: pubsub:8432
@@ -71,7 +72,7 @@ services:
       - "8080:8080"
     volumes:
       - ./backend:/app
-      - ~/.config/gcloud:/root/.config/gcloud
+      - C:/Users/dan.bondarenko/AppData/Roaming/gcloud:/root/.config/gcloud
     environment:
       APP_TITLE: Local App
       NOTIFICATION_SENDER_EMAIL: notify@example.com
@@ -87,8 +88,7 @@ services:
       SQLALCHEMY_ECHO: 1
       PORT: 8080
     entrypoint: []
-    command:
-      /bin/bash -c "python setup_pubsub.py && flask run --host 0.0.0.0 --port 8080"
+    command: /bin/bash -c "python setup_pubsub.py && python -m flask db upgrade && python -m flask db-seeds && flask run --host 0.0.0.0 --port 8080"
     depends_on:
       db:
         condition: service_healthy
