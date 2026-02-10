@@ -15,6 +15,10 @@ echo "Fixing deployment for project: $PROJECT_ID"
 # Navigate to terraform directory
 cd "$(dirname "$0")/../terraform"
 
+# Fix permissions on terraform directory (often owned by root from Docker)
+echo "Fixing permissions on terraform directory..."
+sudo chown -R $USER .
+
 echo "Initializing Terraform..."
 terraform init -upgrade
 
