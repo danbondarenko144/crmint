@@ -22,7 +22,7 @@
 
 set -e
 
-TARGET_BRANCH=${1:-master}
+TARGET_BRANCH=${1:-bug-fix-docker-build-errors}
 
 # Allows advanced users to use their own CLI wrapper docker image.
 #
@@ -35,34 +35,25 @@ CRMINT_CLI_DOCKER_IMAGE=${CRMINT_CLI_DOCKER_IMAGE:-europe-docker.pkg.dev/instant
 # Defaults to `$HOME/crmint`.
 CRMINT_HOME=${CRMINT_HOME:-$HOME/crmint}
 
-# Downloads the source code.
+# Downloads the source code from the fork.
 if [ ! -d $CRMINT_HOME ]; then
-  git clone https://github.com/google/crmint.git $CRMINT_HOME
+  git clone -b $TARGET_BRANCH https://github.com/danbondarenko144/crmint.git $CRMINT_HOME
   echo -e "\nCloned crmint repository to: $CRMINT_HOME."
 else
   echo -e "\nSkip cloning."
 fi
 
-# Updates the targeted branch (if it's a git repository only).
+# Updates the targeted branch.
+FORK_URL="https://github.com/danbondarenko144/crmint.git"
 if [ -d $CRMINT_HOME/.git ]; then
   CURRENT_DIR=$(pwd)
   cd $CRMINT_HOME
 
-  if [[ `git status --porcelain --untracked-files=no` ]]; then
-    echo "ERROR: Cannot install configure CRMint Command Line because you have local changes."
-    echo "       Please commit your changes or stash them before you install our CLI."
-    return
-  else
-    echo -e "\nNo local changes."
-  fi
+  # Ensure origin points to the fork.
+  git remote set-url origin $FORK_URL
+  git fetch origin
+  git checkout -B $TARGET_BRANCH origin/$TARGET_BRANCH
 
-  # Ensures the correct fork.
-  git remote add upstream https://github.com/google/crmint.git 2>&1
-  git fetch upstream
-
-  # Loads new commits.
-  git checkout -B $TARGET_BRANCH upstream/$TARGET_BRANCH
-  git pull upstream $TARGET_BRANCH
   cd "$CURRENT_DIR"
 fi
 
