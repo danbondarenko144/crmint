@@ -3,7 +3,6 @@ locals {
     "aiplatform.googleapis.com",
     "analytics.googleapis.com",
     "analyticsadmin.googleapis.com",
-    "analyticsreporting.googleapis.com",
     "cloudscheduler.googleapis.com",
     "compute.googleapis.com",
     "iap.googleapis.com",
