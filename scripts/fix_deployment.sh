@@ -126,6 +126,25 @@ run_terraform import google_compute_region_network_endpoint_group.jobs_neg "proj
 echo "Importing Secrets..."
 run_terraform import google_secret_manager_secret.cloud_db_uri "projects/$PROJECT_ID/secrets/cloud_db_uri" || echo "Secret skipped (already managed?)"
 
+# 10. Import Cloud SQL
+echo "Importing Cloud SQL..."
+# Try to find the instance name. User logs showed 'crmint-3-db'.
+DB_INSTANCE=$(gcloud sql instances list --format="value(name)" --filter="name:crmint*" --limit=1 2>/dev/null)
+if [ -n "$DB_INSTANCE" ]; then
+    echo "Found Cloud SQL Instance: $DB_INSTANCE. Importing..."
+    run_terraform import google_sql_database_instance.main "projects/$PROJECT_ID/instances/$DB_INSTANCE" || echo "SQL Instance skipped (already managed?)"
+    
+    # Import Database (default name crmintapp-db)
+    run_terraform import google_sql_database.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/databases/crmintapp-db" || echo "SQL Database skipped (already managed?)"
+    
+    # Import User (default name crmintapp)
+    # The host is usually '%' or 'cloudsqlproxy~%' but terraform import ID format is project/instance/user/host
+    # We'll try importing user 'crmintapp' with host '%'
+    run_terraform import google_sql_user.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/users/crmintapp" || echo "SQL User skipped (already managed?) - note: host might differ"
+else
+    echo "No existing Cloud SQL instance found."
+fi
+
 set -e
 
 echo "--------------------------------------------------------"
