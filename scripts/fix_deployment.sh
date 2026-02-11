@@ -132,6 +132,18 @@ run_terraform import 'google_compute_global_address.db_private_ip_address[0]' "p
 echo "Importing VPC Access Connector..."
 run_terraform import 'google_vpc_access_connector.connector[0]' "projects/$PROJECT_ID/locations/$REGION/connectors/crmint-vpc-conn" || echo "VPC Access Connector skipped (already managed?)"
 
+# Import Backend Services
+echo "Importing Backend Services..."
+run_terraform import google_compute_backend_service.frontend_backend "projects/$PROJECT_ID/global/backendServices/crmint-frontend-backend-service" || echo "Frontend Backend Service skipped (already managed?)"
+run_terraform import google_compute_backend_service.controller_backend "projects/$PROJECT_ID/global/backendServices/crmint-controller-backend-service" || echo "Controller Backend Service skipped (already managed?)"
+run_terraform import google_compute_backend_service.jobs_backend "projects/$PROJECT_ID/global/backendServices/crmint-jobs-backend-service" || echo "Jobs Backend Service skipped (already managed?)"
+
+# Import Load Balancer Components
+echo "Importing Load Balancer Components..."
+run_terraform import google_compute_url_map.default "projects/$PROJECT_ID/global/urlMaps/crmint-http-lb" || echo "URL Map skipped (already managed?)"
+run_terraform import google_compute_target_https_proxy.default "projects/$PROJECT_ID/global/targetHttpsProxies/crmint-default-https-lb-proxy" || echo "HTTPS Proxy skipped (already managed?)"
+run_terraform import google_compute_global_forwarding_rule.default "projects/$PROJECT_ID/global/forwardingRules/crmint-default-https-lb-forwarding-rule" || echo "Forwarding Rule skipped (already managed?)"
+
 # 7. Import SSL Certificate
 echo "Importing SSL Certificate..."
 SSL_EXISTS=$(gcloud compute ssl-certificates list --filter="name=crmint-managed" --format="value(name)" --global 2>/dev/null)
