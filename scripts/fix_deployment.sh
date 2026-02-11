@@ -35,6 +35,15 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 echo "Fixing deployment for project: $PROJECT_ID"
+ 
+# Nav to terraform dir to clean locks
+cd "$CRMINT_HOME/terraform"
+if ls .terraform.tfstate.lock.info 1> /dev/null 2>&1; then
+    echo "Removing stale lock file .terraform.tfstate.lock.info..."
+    sudo rm .terraform.tfstate.lock.info
+fi
+find . -name "*.lock.info" -exec echo "Removing stale lock: {}" \; -exec sudo rm {} \;
+cd - > /dev/null
 
 # 1. Initialize
 run_terraform init -upgrade
