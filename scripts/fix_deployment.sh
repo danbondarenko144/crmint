@@ -63,23 +63,26 @@ run_terraform init -upgrade
 echo "Selecting workspace..."
 run_terraform workspace select "$PROJECT_ID" || run_terraform workspace new "$PROJECT_ID"
 
+# Temporarily allow failures for import commands since resources might already be managed
+set +e
+
 # 3. Import Service Accounts
 echo "Importing Service Accounts..."
-run_terraform import google_service_account.frontend_sa "projects/$PROJECT_ID/serviceAccounts/crmint-frontend-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Frontend SA skipped"
-run_terraform import google_service_account.jobs_sa "projects/$PROJECT_ID/serviceAccounts/crmint-jobs-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Jobs SA skipped"
-run_terraform import google_service_account.controller_sa "projects/$PROJECT_ID/serviceAccounts/crmint-controller-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Controller SA skipped"
-run_terraform import google_service_account.pubsub_sa "projects/$PROJECT_ID/serviceAccounts/crmint-pubsub-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "PubSub SA skipped"
+run_terraform import google_service_account.frontend_sa "projects/$PROJECT_ID/serviceAccounts/crmint-frontend-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Frontend SA skipped (already managed?)"
+run_terraform import google_service_account.jobs_sa "projects/$PROJECT_ID/serviceAccounts/crmint-jobs-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Jobs SA skipped (already managed?)"
+run_terraform import google_service_account.controller_sa "projects/$PROJECT_ID/serviceAccounts/crmint-controller-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "Controller SA skipped (already managed?)"
+run_terraform import google_service_account.pubsub_sa "projects/$PROJECT_ID/serviceAccounts/crmint-pubsub-sa@$PROJECT_ID.iam.gserviceaccount.com" || echo "PubSub SA skipped (already managed?)"
 
 # 4. Import Metrics and Topics
 echo "Importing Resources..."
-run_terraform import google_logging_metric.pipeline_status_failed "crmint/pipeline_status_failed" || echo "Metric skipped"
-run_terraform import google_pubsub_topic.pipeline-finished "projects/$PROJECT_ID/topics/crmint-3-pipeline-finished" || echo "Topic skipped"
+run_terraform import google_logging_metric.pipeline_status_failed "crmint/pipeline_status_failed" || echo "Metric skipped (already managed?)"
+run_terraform import google_pubsub_topic.pipeline-finished "projects/$PROJECT_ID/topics/crmint-3-pipeline-finished" || echo "Topic skipped (already managed?)"
 
 # 5. Import IAP Brand (if exists)
 BRAND_NAME=$(gcloud iap oauth-brands list --format="value(name)" --limit=1 2>/dev/null)
 if [ -n "$BRAND_NAME" ]; then
   echo "Found IAP Brand: $BRAND_NAME. Importing..."
-  run_terraform import 'google_iap_brand.default[0]' "$BRAND_NAME" || echo "Brand skipped"
+  run_terraform import 'google_iap_brand.default[0]' "$BRAND_NAME" || echo "Brand skipped (already managed?)"
 else
   echo "No existing IAP Brand found."
 fi
@@ -89,10 +92,12 @@ echo "Checking for Global Address 'crmint-ip'..."
 IP_EXISTS=$(gcloud compute addresses list --filter="name=crmint-ip" --format="value(name)" --global 2>/dev/null)
 if [ -n "$IP_EXISTS" ]; then
   echo "Found Global Address: $IP_EXISTS. Importing..."
-  run_terraform import google_compute_global_address.default "projects/$PROJECT_ID/global/addresses/crmint-ip" || echo "Global Address skipped"
+  run_terraform import google_compute_global_address.default "projects/$PROJECT_ID/global/addresses/crmint-ip" || echo "Global Address skipped (already managed?)"
 else
   echo "No existing Global Address found."
 fi
+
+set -e
 
 echo "--------------------------------------------------------"
 echo "Fix complete. You can now try running 'crmint cloud setup' again."
