@@ -100,13 +100,29 @@ run_terraform import google_compute_global_address.default "projects/$PROJECT_ID
 # We assume index 0 for the count.
 run_terraform import 'google_compute_network.private[0]' "projects/$PROJECT_ID/global/networks/crmint-private-network" || echo "VPC Network skipped (already managed?)"
 
-# 7. Import NEGs
+# Import Subnetwork
+run_terraform import 'google_compute_subnetwork.private[0]' "projects/$PROJECT_ID/regions/$REGION/subnetworks/crmint-private-subnetwork" || echo "Subnetwork skipped (already managed?)"
+
+# Import DB Private IP
+run_terraform import 'google_compute_global_address.db_private_ip_address[0]' "projects/$PROJECT_ID/global/addresses/crmint-db-private-ip-address" || echo "DB Private IP skipped (already managed?)"
+
+# 7. Import SSL Certificate
+echo "Importing SSL Certificate..."
+SSL_EXISTS=$(gcloud compute ssl-certificates list --filter="name=crmint-managed" --format="value(name)" --global 2>/dev/null)
+if [ -n "$SSL_EXISTS" ]; then
+  echo "Found SSL Certificate: $SSL_EXISTS. Importing..."
+  run_terraform import google_compute_managed_ssl_certificate.default "projects/$PROJECT_ID/global/sslCertificates/crmint-managed" || echo "SSL Cert skipped (already managed?)"
+else
+  echo "No existing SSL Certificate found."
+fi
+
+# 8. Import NEGs
 echo "Importing Network Endpoint Groups..."
 run_terraform import google_compute_region_network_endpoint_group.frontend_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/frontend-neg" || echo "Frontend NEG skipped (already managed?)"
 run_terraform import google_compute_region_network_endpoint_group.controller_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/controller-neg" || echo "Controller NEG skipped (already managed?)"
 run_terraform import google_compute_region_network_endpoint_group.jobs_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/jobs-neg" || echo "Jobs NEG skipped (already managed?)"
 
-# 8. Import Secrets
+# 9. Import Secrets
 echo "Importing Secrets..."
 run_terraform import google_secret_manager_secret.cloud_db_uri "projects/$PROJECT_ID/secrets/cloud_db_uri" || echo "Secret skipped (already managed?)"
 
