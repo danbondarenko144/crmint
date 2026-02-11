@@ -11,14 +11,20 @@ GCLOUD_CONFIG_PATH="${CLOUDSDK_CONFIG:-$HOME/.config/gcloud}"
 
 # Helper function to run terraform inside docker
 function run_terraform {
-  echo "Running terraform $1..."
+
   
   # Default variables needed for validation during import
   USER_EMAIL=$(gcloud config get-value account 2>/dev/null)
+  PROJECT_ID_VAR=$(gcloud config get-value project 2>/dev/null)
   
   docker run --rm --interactive --net=host \
     --env-file "$CRMINT_HOME/cli/.env" \
+    -e TF_VAR_project_id="$PROJECT_ID_VAR" \
+    -e TF_VAR_app_title="CRMint" \
+    -e TF_VAR_iap_support_email="$USER_EMAIL" \
+    -e TF_VAR_notification_sender_email="$USER_EMAIL" \
     -e TF_VAR_iap_allowed_users="[\"user:$USER_EMAIL\"]" \
+    -e TF_VAR_report_usage_id="false" \
     -v "$CRMINT_HOME/cli:/app/cli" \
     -v "$CRMINT_HOME/terraform:/app/terraform" \
     -v "$GCLOUD_CONFIG_PATH:/root/.config/gcloud" \
