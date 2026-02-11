@@ -98,15 +98,17 @@ run_terraform import google_pubsub_topic.pipeline-finished "projects/$PROJECT_ID
 # 5. Import IAP Brand (if exists)
 echo "Checking for IAP Brand..."
 BRAND_NAME=$(gcloud iap oauth-brands list --format="value(name)" --limit=1 2>/dev/null)
-if [ -z "$BRAND_NAME" ]; then
-  # Try without silencing errors to see what's happening
-  echo "No brand found with gcloud iap oauth-brands list. Trying to debug..."
-  gcloud iap oauth-brands list
-fi
-
 if [ -n "$BRAND_NAME" ]; then
   echo "Found IAP Brand: $BRAND_NAME. Importing..."
   run_terraform import 'google_iap_brand.default[0]' "$BRAND_NAME" || echo "Brand skipped (already managed?)"
+  
+  # Crucially: Update the stage file to set iap_brand_id so Terraform skips creating it
+  BRAND_ID=$(echo "$BRAND_NAME" | sed 's:.*/::')
+  STAGE_FILE="$CRMINT_HOME/cli/stages/$PROJECT_ID.tfvars.json"
+  if [ -f "$STAGE_FILE" ]; then
+    echo "Updating $STAGE_FILE with iap_brand_id=$BRAND_ID"
+    python3 -c "import json; f='$STAGE_FILE'; d=json.load(open(f)); d['iap_brand_id']='$BRAND_ID'; json.dump(d, open(f, 'w'), indent=2)"
+  fi
 else
   echo "No existing IAP Brand found. This might cause a 409 error if one actually exists."
 fi
@@ -162,9 +164,8 @@ if [ -n "$DB_INSTANCE" ]; then
     run_terraform import google_sql_database.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/databases/crmintapp-db" || echo "SQL Database skipped (already managed?)"
     
     # Import User (default name crmintapp)
-    # The host is usually '%' or 'cloudsqlproxy~%' but terraform import ID format is project/instance/user/host
-    # We'll try importing user 'crmintapp' with host '%'
-    run_terraform import google_sql_user.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/users/crmintapp" || echo "SQL User skipped (already managed?) - note: host might differ"
+    # The host is REQUIRED for MySQL: projects/{project}/instances/{instance}/users/{host}/{name}
+    run_terraform import google_sql_user.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/users/%/crmintapp" || echo "SQL User skipped (already managed?)"
 else
     echo "No existing Cloud SQL instance found."
 fi
