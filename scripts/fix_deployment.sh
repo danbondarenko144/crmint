@@ -87,15 +87,28 @@ else
   echo "No existing IAP Brand found."
 fi
 
-# 6. Import Global Address (IP)
-echo "Checking for Global Address 'crmint-ip'..."
-IP_EXISTS=$(gcloud compute addresses list --filter="name=crmint-ip" --format="value(name)" --global 2>/dev/null)
-if [ -n "$IP_EXISTS" ]; then
-  echo "Found Global Address: $IP_EXISTS. Importing..."
-  run_terraform import google_compute_global_address.default "projects/$PROJECT_ID/global/addresses/crmint-ip" || echo "Global Address skipped (already managed?)"
-else
-  echo "No existing Global Address found."
-fi
+# Detect Region
+REGION=$(gcloud config get-value compute/region 2>/dev/null)
+REGION=${REGION:-us-east1}
+echo "Detected Region: $REGION"
+
+# 6. Import Network & Global Address
+echo "Importing Network & Security Resources..."
+run_terraform import google_compute_global_address.default "projects/$PROJECT_ID/global/addresses/global-crmint-default" || echo "Global Address skipped (already managed?)"
+
+# Import Network (if using VPC)
+# We assume index 0 for the count.
+run_terraform import 'google_compute_network.private[0]' "projects/$PROJECT_ID/global/networks/crmint-private-network" || echo "VPC Network skipped (already managed?)"
+
+# 7. Import NEGs
+echo "Importing Network Endpoint Groups..."
+run_terraform import google_compute_region_network_endpoint_group.frontend_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/frontend-neg" || echo "Frontend NEG skipped (already managed?)"
+run_terraform import google_compute_region_network_endpoint_group.controller_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/controller-neg" || echo "Controller NEG skipped (already managed?)"
+run_terraform import google_compute_region_network_endpoint_group.jobs_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/jobs-neg" || echo "Jobs NEG skipped (already managed?)"
+
+# 8. Import Secrets
+echo "Importing Secrets..."
+run_terraform import google_secret_manager_secret.cloud_db_uri "projects/$PROJECT_ID/secrets/cloud_db_uri" || echo "Secret skipped (already managed?)"
 
 set -e
 
