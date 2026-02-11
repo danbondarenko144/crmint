@@ -107,7 +107,7 @@ if [ -n "$BRAND_NAME" ]; then
   STAGE_FILE="$CRMINT_HOME/cli/stages/$PROJECT_ID.tfvars.json"
   if [ -f "$STAGE_FILE" ]; then
     echo "Updating $STAGE_FILE with iap_brand_id=$BRAND_ID"
-    python3 -c "import json; f='$STAGE_FILE'; d=json.load(open(f)); d['iap_brand_id']='$BRAND_ID'; json.dump(d, open(f, 'w'), indent=2)"
+    sudo python3 -c "import json; f='$STAGE_FILE'; d=json.load(open(f)); d['iap_brand_id']='$BRAND_ID'; json.dump(d, open(f, 'w'), indent=2)"
   fi
 else
   echo "No existing IAP Brand found. This might cause a 409 error if one actually exists."
@@ -164,8 +164,8 @@ if [ -n "$DB_INSTANCE" ]; then
     run_terraform import google_sql_database.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/databases/crmintapp-db" || echo "SQL Database skipped (already managed?)"
     
     # Import User (default name crmintapp)
-    # The host is REQUIRED for MySQL: projects/{project}/instances/{instance}/users/{host}/{name}
-    run_terraform import google_sql_user.crmint "projects/$PROJECT_ID/instances/$DB_INSTANCE/users/%/crmintapp" || echo "SQL User skipped (already managed?)"
+    # The host is REQUIRED for MySQL, format: {project}/{instance}/{host}/{name} (no prefixes)
+    run_terraform import google_sql_user.crmint "$PROJECT_ID/$DB_INSTANCE/%/crmintapp" || echo "SQL User skipped (already managed?)"
 else
     echo "No existing Cloud SQL instance found."
 fi
