@@ -64,5 +64,15 @@ else
   echo "No existing IAP Brand found."
 fi
 
+# 6. Import Global Address (IP)
+echo "Checking for Global Address 'crmint-ip'..."
+IP_EXISTS=$(gcloud compute addresses list --filter="name=crmint-ip" --format="value(name)" --global 2>/dev/null)
+if [ -n "$IP_EXISTS" ]; then
+  echo "Found Global Address: $IP_EXISTS. Importing..."
+  run_terraform import google_compute_global_address.default "projects/$PROJECT_ID/global/addresses/crmint-ip" || echo "Global Address skipped"
+else
+  echo "No existing Global Address found."
+fi
+
 echo "--------------------------------------------------------"
 echo "Fix complete. You can now try running 'crmint cloud setup' again."
