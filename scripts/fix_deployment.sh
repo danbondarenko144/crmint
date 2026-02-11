@@ -21,6 +21,8 @@ function run_terraform {
     --env-file "$CRMINT_HOME/cli/.env" \
     -e TF_VAR_project_id="$PROJECT_ID_VAR" \
     -e TF_VAR_app_title="CRMint" \
+    -e TF_VAR_region="$REGION" \
+    -e TF_VAR_zone="${REGION}-c" \
     -e TF_VAR_iap_support_email="$USER_EMAIL" \
     -e TF_VAR_notification_sender_email="$USER_EMAIL" \
     -e TF_VAR_iap_allowed_users="[\"user:$USER_EMAIL\"]" \
@@ -56,6 +58,21 @@ fi
 find . -name "*.lock.info" -exec echo "Removing stale lock: {}" \; -exec sudo rm {} \;
 cd - > /dev/null
 
+# --- New Region Detection Block ---
+# Detect Region robustly
+# First try to find existing subnet region
+EXISTING_SUBNET_REGION=$(gcloud compute networks subnets list --filter="name=crmint-private-subnetwork" --format="value(region)" --limit=1 2>/dev/null | awk -F/ '{print $NF}')
+if [ -n "$EXISTING_SUBNET_REGION" ]; then
+    REGION="$EXISTING_SUBNET_REGION"
+    echo "Detected Region from existing subnet: $REGION"
+else
+    # Fallback to gcloud config
+    REGION=$(gcloud config get-value compute/region 2>/dev/null)
+    REGION=${REGION:-us-east1}
+    echo "Detected Region from config/default: $REGION"
+fi
+# ----------------------------------
+
 # 1. Initialize
 run_terraform init -upgrade
 
@@ -79,26 +96,21 @@ run_terraform import google_logging_metric.pipeline_status_failed "crmint/pipeli
 run_terraform import google_pubsub_topic.pipeline-finished "projects/$PROJECT_ID/topics/crmint-3-pipeline-finished" || echo "Topic skipped (already managed?)"
 
 # 5. Import IAP Brand (if exists)
+echo "Checking for IAP Brand..."
 BRAND_NAME=$(gcloud iap oauth-brands list --format="value(name)" --limit=1 2>/dev/null)
+if [ -z "$BRAND_NAME" ]; then
+  # Try without silencing errors to see what's happening
+  echo "No brand found with gcloud iap oauth-brands list. Trying to debug..."
+  gcloud iap oauth-brands list
+fi
+
 if [ -n "$BRAND_NAME" ]; then
   echo "Found IAP Brand: $BRAND_NAME. Importing..."
   run_terraform import 'google_iap_brand.default[0]' "$BRAND_NAME" || echo "Brand skipped (already managed?)"
 else
-  echo "No existing IAP Brand found."
+  echo "No existing IAP Brand found. This might cause a 409 error if one actually exists."
 fi
 
-# Detect Region robustly
-# First try to find existing subnet region
-EXISTING_SUBNET_REGION=$(gcloud compute networks subnets list --filter="name=crmint-private-subnetwork" --format="value(region)" --limit=1 2>/dev/null | awk -F/ '{print $NF}')
-if [ -n "$EXISTING_SUBNET_REGION" ]; then
-    REGION="$EXISTING_SUBNET_REGION"
-    echo "Detected Region from existing subnet: $REGION"
-else
-    # Fallback to gcloud config
-    REGION=$(gcloud config get-value compute/region 2>/dev/null)
-    REGION=${REGION:-us-east1}
-    echo "Detected Region from config/default: $REGION"
-fi
 
 # 6. Import Network & Global Address
 echo "Importing Network & Security Resources..."
@@ -113,6 +125,10 @@ run_terraform import 'google_compute_subnetwork.private[0]' "projects/$PROJECT_I
 
 # Import DB Private IP
 run_terraform import 'google_compute_global_address.db_private_ip_address[0]' "projects/$PROJECT_ID/global/addresses/crmint-db-private-ip-address" || echo "DB Private IP skipped (already managed?)"
+
+# Import VPC Access Connector
+echo "Importing VPC Access Connector..."
+run_terraform import 'google_vpc_access_connector.connector[0]' "projects/$PROJECT_ID/locations/$REGION/connectors/crmint-vpc-conn" || echo "VPC Access Connector skipped (already managed?)"
 
 # 7. Import SSL Certificate
 echo "Importing SSL Certificate..."
