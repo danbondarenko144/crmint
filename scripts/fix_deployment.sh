@@ -87,10 +87,18 @@ else
   echo "No existing IAP Brand found."
 fi
 
-# Detect Region
-REGION=$(gcloud config get-value compute/region 2>/dev/null)
-REGION=${REGION:-us-east1}
-echo "Detected Region: $REGION"
+# Detect Region robustly
+# First try to find existing subnet region
+EXISTING_SUBNET_REGION=$(gcloud compute networks subnets list --filter="name=crmint-private-subnetwork" --format="value(region)" --limit=1 2>/dev/null | awk -F/ '{print $NF}')
+if [ -n "$EXISTING_SUBNET_REGION" ]; then
+    REGION="$EXISTING_SUBNET_REGION"
+    echo "Detected Region from existing subnet: $REGION"
+else
+    # Fallback to gcloud config
+    REGION=$(gcloud config get-value compute/region 2>/dev/null)
+    REGION=${REGION:-us-east1}
+    echo "Detected Region from config/default: $REGION"
+fi
 
 # 6. Import Network & Global Address
 echo "Importing Network & Security Resources..."
@@ -117,7 +125,7 @@ else
 fi
 
 # 8. Import NEGs
-echo "Importing Network Endpoint Groups..."
+echo "Importing Network Endpoint Groups (Region: $REGION)..."
 run_terraform import google_compute_region_network_endpoint_group.frontend_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/frontend-neg" || echo "Frontend NEG skipped (already managed?)"
 run_terraform import google_compute_region_network_endpoint_group.controller_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/controller-neg" || echo "Controller NEG skipped (already managed?)"
 run_terraform import google_compute_region_network_endpoint_group.jobs_neg "projects/$PROJECT_ID/regions/$REGION/networkEndpointGroups/jobs-neg" || echo "Jobs NEG skipped (already managed?)"
