@@ -109,7 +109,10 @@ class GAProvider(object):
       qs['dp'] = payload['path']
 
     # Sends the request.
-    requests.post(self.URL, data=qs)
+    try:
+      requests.post(self.URL, data=qs, timeout=5)
+    except requests.exceptions.RequestException:
+      pass
 
   def track(self, *args):
     if self.opt_out is True:

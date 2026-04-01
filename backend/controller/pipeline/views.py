@@ -129,10 +129,10 @@ class PipelineList(Resource):
     tracker = insight.GAProvider()
     tracker.track_event(category='pipelines', action='list')
     pipelines = models.Pipeline.query.options(
-        (orm.defaultload(models.Pipeline.jobs).defaultload(
-            models.Job.params).defer(models.Param.value)),
-        (orm.defaultload(models.Pipeline.jobs).defaultload(
-            models.Job.params).defer(models.Param.runtime_value))).all()
+        orm.selectinload(models.Pipeline.schedules),
+        orm.selectinload(models.Pipeline.params),
+        orm.selectinload(models.Pipeline.jobs).defer(models.Job.worker_class)
+    ).all()
     return pipelines
 
   @marshal_with(pipeline_fields)
